@@ -132,7 +132,7 @@ pub const TerminalResponse = extern struct {
     revision: u64,
     terminal_count: u64,
     terminals_ptr: [*]*Terminal,
-    write_fn: *fn (*Terminal, [*]const u8, u64) callconv(.C) void,
+    write_fn: *const fn (*Terminal, [*]const u8, u64) callconv(.C) void,
 
     pub inline fn terminals(self: *@This()) []*Terminal {
         return self.terminals_ptr[0..self.terminal_count];
@@ -180,7 +180,7 @@ pub const TerminalRequest = extern struct {
     id: [4]u64 = magic(0xc8ac59310c2b0844, 0xa68d0c7265d38878),
     revision: u64 = 0,
     response: ?*TerminalResponse = null,
-    callback: ?*fn (*Terminal, CallbackType, u64, u64, u64) callconv(.C) void = null,
+    callback: ?*const fn (*Terminal, CallbackType, u64, u64, u64) callconv(.C) void = null,
 };
 
 pub const FiveLevelPagingResponse = extern struct {
@@ -197,7 +197,7 @@ pub const SmpInfo = extern struct {
     processor_id: u32,
     lapic_id: u32,
     reserved: u64,
-    goto_address: ?*fn (*SmpInfo) callconv(.C) noreturn,
+    goto_address: ?*const fn (*SmpInfo) callconv(.C) noreturn,
     extra_argument: u64,
 };
 
@@ -265,7 +265,7 @@ pub const EntryPointRequest = extern struct {
     id: [4]u64 = magic(0x13d86c035a1cd3e1, 0x2b0caa89d8f3026a),
     revision: u64 = 0,
     response: ?*EntryPointResponse = null,
-    entry: ?*fn () callconv(.C) noreturn = null,
+    entry: ?*const fn () callconv(.C) noreturn = null,
 };
 
 pub const KernelFileResponse = extern struct {
