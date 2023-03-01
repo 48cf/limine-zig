@@ -77,6 +77,20 @@ pub const FramebufferMemoryModel = enum(u8) {
     _,
 };
 
+pub const VideoMode = extern struct {
+    pitch: u64,
+    width: u64,
+    height: u64,
+    bpp: u16,
+    memory_model: u8,
+    red_mask_size: u8,
+    red_mask_shift: u8,
+    green_mask_size: u8,
+    green_mask_shift: u8,
+    blue_mask_size: u8,
+    blue_mask_shift: u8,
+};
+
 pub const Framebuffer = extern struct {
     address: [*]u8,
     width: u64,
@@ -94,6 +108,10 @@ pub const Framebuffer = extern struct {
     edid_size: u64,
     edid: ?[*]u8,
 
+    // Response revision 1
+    mode_count: u64,
+    modes: [*]*VideoMode,
+
     pub inline fn data(self: *@This()) []u8 {
         return self.address[0 .. self.pitch * self.height];
     }
@@ -103,6 +121,10 @@ pub const Framebuffer = extern struct {
             return edid_data[0..self.edid_size];
         }
         return null;
+    }
+
+    pub inline fn videoModes(self: *@This()) []*VideoMode {
+        return self.modes[0..self.mode_count];
     }
 };
 
@@ -118,7 +140,7 @@ pub const FramebufferResponse = extern struct {
 
 pub const FramebufferRequest = extern struct {
     id: [4]u64 = magic(0x9d5827dcd881dd75, 0xa3148604f6fab11b),
-    revision: u64 = 0,
+    revision: u64 = 1,
     response: ?*FramebufferResponse = null,
 };
 
@@ -126,6 +148,17 @@ pub const Terminal = extern struct {
     columns: u64,
     rows: u64,
     framebuffer: *Framebuffer,
+};
+
+pub const OobOutputFlags = enum(u64) {
+    ocrnl = 1 << 0,
+    ofdel = 1 << 1,
+    ofill = 1 << 2,
+    olcuc = 1 << 3,
+    onlcr = 1 << 4,
+    onlret = 1 << 5,
+    onocr = 1 << 6,
+    opost = 1 << 7,
 };
 
 pub const TerminalResponse = extern struct {
@@ -138,29 +171,37 @@ pub const TerminalResponse = extern struct {
         return self.terminals_ptr[0..self.terminal_count];
     }
 
-    pub inline fn write(self: *@This(), terminal_opt: ?*Terminal, string: []const u8) void {
-        const terminal = if (terminal_opt) |terminal| terminal else self.terminals_ptr[0];
-        self.write_fn(terminal, string.ptr, std.mem.len(string));
+    pub inline fn write(self: *@This(), terminal: ?*Terminal, string: []const u8) void {
+        self.write_fn(terminal orelse self.terminals_ptr[0], string.ptr, string.len);
     }
 
-    pub inline fn ctxSize(self: *@This(), terminal_opt: ?*Terminal, length: *u64) void {
-        const terminal = if (terminal_opt) |terminal| terminal else self.terminals_ptr[0];
-        self.write_fn(terminal, @ptrCast([*]const u8, length), @bitCast(u64, @as(i64, -1)));
+    pub inline fn ctxSize(self: *@This(), terminal: ?*Terminal) u64 {
+        var result: u64 = undefined;
+        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &result), @bitCast(u64, @as(i64, -1)));
+        return result;
     }
 
-    pub inline fn ctxSave(self: *@This(), terminal_opt: ?*Terminal, ctx: [*]u8) void {
-        const terminal = if (terminal_opt) |terminal| terminal else self.terminals_ptr[0];
-        self.write_fn(terminal, @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -2)));
+    pub inline fn ctxSave(self: *@This(), terminal: ?*Terminal, ctx: [*]u8) void {
+        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -2)));
     }
 
-    pub inline fn ctxRestore(self: *@This(), terminal_opt: ?*Terminal, ctx: [*]const u8) void {
-        const terminal = if (terminal_opt) |terminal| terminal else self.terminals_ptr[0];
-        self.write_fn(terminal, @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -3)));
+    pub inline fn ctxRestore(self: *@This(), terminal: ?*Terminal, ctx: [*]const u8) void {
+        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -3)));
     }
 
-    pub inline fn fullRefresh(self: *@This(), terminal_opt: ?*Terminal) void {
-        const terminal = if (terminal_opt) |terminal| terminal else self.terminals_ptr[0];
-        self.write_fn(terminal, "", @bitCast(u64, @as(i64, -4)));
+    pub inline fn fullRefresh(self: *@This(), terminal: ?*Terminal) void {
+        self.write_fn(terminal orelse self.terminals_ptr[0], "", @bitCast(u64, @as(i64, -4)));
+    }
+
+    // Response revision 1
+    pub inline fn oobOutputGet(self: *@This(), terminal: ?*Terminal) u64 {
+        var result: u64 = undefined;
+        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &result), @bitCast(u64, @as(i64, -10)));
+        return result;
+    }
+
+    pub inline fn oobOutputSet(self: *@This(), terminal: ?*Terminal, value: u64) void {
+        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &value), @bitCast(u64, @as(i64, -11)));
     }
 };
 
@@ -350,4 +391,15 @@ pub const KernelAddressRequest = extern struct {
     id: [4]u64 = magic(0x71ba76863cc55f63, 0xb2644a48c516a487),
     revision: u64 = 0,
     response: ?*KernelAddressResponse = null,
+};
+
+pub const DeviceTreeBlobResponse = extern struct {
+    revision: u64,
+    dtb: ?*anyopaque,
+};
+
+pub const DeviceTreeBlobRequest = extern struct {
+    id: [4]u64 = magic(0xb40ddb48fb54bac7, 0x545081493f81ffb7),
+    revision: u64 = 0,
+    response: ?*DeviceTreeBlobResponse = null,
 };
