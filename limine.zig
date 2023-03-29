@@ -320,6 +320,16 @@ pub const KernelFileRequest = extern struct {
     response: ?*KernelFileResponse = null,
 };
 
+pub const InternalModuleFlags = enum(u64) {
+    required = 1 << 0,
+};
+
+pub const InternalModule = extern struct {
+    path: [*:0]const u8,
+    cmdline: [*:0]const u8,
+    flags: InternalModuleFlags,
+};
+
 pub const ModuleResponse = extern struct {
     revision: u64,
     module_count: u64,
@@ -332,8 +342,12 @@ pub const ModuleResponse = extern struct {
 
 pub const ModuleRequest = extern struct {
     id: [4]u64 = magic(0x3e7e279702be32af, 0xca1c4f3bd1280cee),
-    revision: u64 = 0,
+    revision: u64 = 1,
     response: ?*ModuleResponse = null,
+
+    // Request revision 1
+    internal_module_count: u64 = 0,
+    internal_modules: ?[*]const *const InternalModule = null,
 };
 
 pub const RsdpResponse = extern struct {
