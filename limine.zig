@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 inline fn magic(a: u64, b: u64) [4]u64 {
     return .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, a, b };
@@ -38,6 +39,8 @@ pub const File = extern struct {
     }
 };
 
+// Boot info
+
 pub const BootloaderInfoResponse = extern struct {
     revision: u64,
     name: [*:0]u8,
@@ -50,6 +53,8 @@ pub const BootloaderInfoRequest = extern struct {
     response: ?*BootloaderInfoResponse = null,
 };
 
+// Stack size
+
 pub const StackSizeResponse = extern struct {
     revision: u64,
 };
@@ -61,6 +66,8 @@ pub const StackSizeRequest = extern struct {
     stack_size: u64,
 };
 
+// HHDM
+
 pub const HhdmResponse = extern struct {
     revision: u64,
     offset: u64,
@@ -71,6 +78,8 @@ pub const HhdmRequest = extern struct {
     revision: u64 = 0,
     response: ?*HhdmResponse = null,
 };
+
+// Framebuffer
 
 pub const FramebufferMemoryModel = enum(u8) {
     rgb = 1,
@@ -143,6 +152,8 @@ pub const FramebufferRequest = extern struct {
     revision: u64 = 1,
     response: ?*FramebufferResponse = null,
 };
+
+// Terminal
 
 pub const Terminal = extern struct {
     columns: u64,
@@ -224,6 +235,50 @@ pub const TerminalRequest = extern struct {
     callback: ?*const fn (*Terminal, CallbackType, u64, u64, u64) callconv(.C) void = null,
 };
 
+// Paging mode
+
+const X86PagingMode = enum(u64) {
+    four_level = 0,
+    five_level = 1,
+    default = .four_level,
+};
+
+const AArch64PagingMode = enum(u64) {
+    four_level = 0,
+    five_level = 1,
+    default = .four_level,
+};
+
+const RiscVPagingMode = enum(u64) {
+    sv39 = 0,
+    sv48 = 1,
+    sv57 = 2,
+    default = .sv48,
+};
+
+pub const PagingMode = switch (builtin.cpu.arch) {
+    .x86, .x86_64 => X86PagingMode,
+    .aarch64 => AArch64PagingMode,
+    .riscv64 => RiscVPagingMode,
+    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
+};
+
+pub const PagingModeResponse = extern struct {
+    revision: u64,
+    mode: PagingMode,
+    flags: u64,
+};
+
+pub const PagingModeRequest = extern struct {
+    id: [4]u64 = magic(0x95c1a0edab0944cb, 0xa4e5cb3842f7488a),
+    revision: u64 = 0,
+    response: ?*PagingModeResponse = null,
+    mode: PagingMode,
+    flags: u64,
+};
+
+// 5-level paging
+
 pub const FiveLevelPagingResponse = extern struct {
     revision: u64,
 };
@@ -234,28 +289,95 @@ pub const FiveLevelPagingRequest = extern struct {
     response: ?*FiveLevelPagingResponse = null,
 };
 
-pub const SmpInfo = extern struct {
+// SMP
+const X86SmpInfo = extern struct {
     processor_id: u32,
     lapic_id: u32,
     reserved: u64,
-    goto_address: ?*const fn (*SmpInfo) callconv(.C) noreturn,
+    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
     extra_argument: u64,
 };
 
-pub const SmpFlags = enum(u32) {
+const X86SmpFlags = enum(u32) {
     x2apic = 1 << 0,
 };
 
-pub const SmpResponse = extern struct {
+const X86SmpResponse = extern struct {
     revision: u64,
     flags: u32,
     bsp_lapic_id: u32,
     cpu_count: u64,
-    cpus_ptr: [*]*SmpInfo,
+    cpus_ptr: [*]*X86SmpInfo,
 
-    pub inline fn cpus(self: *@This()) []*SmpInfo {
+    pub inline fn cpus(self: *@This()) []*X86SmpInfo {
         return self.cpus_ptr[0..self.cpu_count];
     }
+};
+
+const AArch64SmpInfo = extern struct {
+    processor_id: u32,
+    gic_iface_no: u32,
+    mpidr: u64,
+    reserved: u64,
+    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
+    extra_argument: u64,
+};
+
+const AArch64SmpFlags = enum(u32) {};
+
+const AArch64SmpResponse = extern struct {
+    revision: u64,
+    flags: u32,
+    bsp_mpidr: u64,
+    cpu_count: u64,
+    cpus_ptr: [*]*X86SmpInfo,
+
+    pub inline fn cpus(self: *@This()) []*X86SmpInfo {
+        return self.cpus_ptr[0..self.cpu_count];
+    }
+};
+
+const RiscVSmpInfo = extern struct {
+    processor_id: u32,
+    hart_id: u32,
+    reserved: u64,
+    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
+    extra_argument: u64,
+};
+
+const RiscVSmpFlags = enum(u32) {};
+
+const RiscVSmpResponse = extern struct {
+    revision: u64,
+    flags: u32,
+    bsp_hart_id: u64,
+    cpu_count: u64,
+    cpus_ptr: [*]*X86SmpInfo,
+
+    pub inline fn cpus(self: *@This()) []*X86SmpInfo {
+        return self.cpus_ptr[0..self.cpu_count];
+    }
+};
+
+pub const SmpInfo = switch (builtin.cpu.arch) {
+    .x86, .x86_64 => X86SmpInfo,
+    .aarch64 => AArch64SmpInfo,
+    .riscv64 => RiscVSmpInfo,
+    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
+};
+
+pub const SmpFlags = switch (builtin.cpu.arch) {
+    .x86, .x86_64 => X86SmpFlags,
+    .aarch64 => AArch64SmpFlags,
+    .riscv64 => RiscVSmpFlags,
+    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
+};
+
+pub const SmpResponse = switch (builtin.cpu.arch) {
+    .x86, .x86_64 => X86SmpResponse,
+    .aarch64 => AArch64SmpResponse,
+    .riscv64 => RiscVSmpResponse,
+    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
 };
 
 pub const SmpRequest = extern struct {
@@ -264,6 +386,8 @@ pub const SmpRequest = extern struct {
     response: ?*SmpResponse = null,
     flags: u64 = 0,
 };
+
+// Memory map
 
 pub const MemoryMapEntryType = enum(u64) {
     usable = 0,
@@ -298,6 +422,8 @@ pub const MemoryMapRequest = extern struct {
     response: ?*MemoryMapResponse = null,
 };
 
+// Entry point
+
 pub const EntryPointResponse = extern struct {
     revision: u64,
 };
@@ -309,6 +435,8 @@ pub const EntryPointRequest = extern struct {
     entry: ?*const fn () callconv(.C) noreturn = null,
 };
 
+// Kernel file
+
 pub const KernelFileResponse = extern struct {
     revision: u64,
     kernel_file: *File,
@@ -319,6 +447,8 @@ pub const KernelFileRequest = extern struct {
     revision: u64 = 0,
     response: ?*KernelFileResponse = null,
 };
+
+// Module
 
 pub const InternalModuleFlags = enum(u64) {
     required = 1 << 0,
@@ -350,6 +480,8 @@ pub const ModuleRequest = extern struct {
     internal_modules: ?[*]const *const InternalModule = null,
 };
 
+// RSDP
+
 pub const RsdpResponse = extern struct {
     revision: u64,
     address: *anyopaque,
@@ -360,6 +492,8 @@ pub const RsdpRequest = extern struct {
     revision: u64 = 0,
     response: ?*RsdpResponse = null,
 };
+
+// SMBIOS
 
 pub const SmbiosResponse = extern struct {
     revision: u64,
@@ -373,6 +507,8 @@ pub const SmbiosRequest = extern struct {
     response: ?*SmbiosResponse = null,
 };
 
+// EFI system table
+
 pub const EfiSystemStableResponse = extern struct {
     revision: u64,
     address: *anyopaque,
@@ -383,6 +519,8 @@ pub const EfiSystemTableRequest = extern struct {
     revision: u64 = 0,
     response: ?*EfiSystemStableResponse = null,
 };
+
+// Boot time
 
 pub const BootTimeResponse = extern struct {
     revision: u64,
@@ -395,6 +533,8 @@ pub const BootTimeRequest = extern struct {
     response: ?*BootTimeResponse = null,
 };
 
+// Kernel address
+
 pub const KernelAddressResponse = extern struct {
     revision: u64,
     physical_base: u64,
@@ -406,6 +546,8 @@ pub const KernelAddressRequest = extern struct {
     revision: u64 = 0,
     response: ?*KernelAddressResponse = null,
 };
+
+// Device tree blob
 
 pub const DeviceTreeBlobResponse = extern struct {
     revision: u64,
