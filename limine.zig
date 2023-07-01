@@ -188,31 +188,31 @@ pub const TerminalResponse = extern struct {
 
     pub inline fn ctxSize(self: *@This(), terminal: ?*Terminal) u64 {
         var result: u64 = undefined;
-        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &result), @bitCast(u64, @as(i64, -1)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], @as([*]const u8, @ptrCast(&result)), @as(u64, @bitCast(@as(i64, -1))));
         return result;
     }
 
     pub inline fn ctxSave(self: *@This(), terminal: ?*Terminal, ctx: [*]u8) void {
-        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -2)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], @as([*]const u8, @ptrCast(ctx)), @as(u64, @bitCast(@as(i64, -2))));
     }
 
     pub inline fn ctxRestore(self: *@This(), terminal: ?*Terminal, ctx: [*]const u8) void {
-        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, ctx), @bitCast(u64, @as(i64, -3)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], @as([*]const u8, @ptrCast(ctx)), @as(u64, @bitCast(@as(i64, -3))));
     }
 
     pub inline fn fullRefresh(self: *@This(), terminal: ?*Terminal) void {
-        self.write_fn(terminal orelse self.terminals_ptr[0], "", @bitCast(u64, @as(i64, -4)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], "", @as(u64, @bitCast(@as(i64, -4))));
     }
 
     // Response revision 1
     pub inline fn oobOutputGet(self: *@This(), terminal: ?*Terminal) u64 {
         var result: u64 = undefined;
-        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &result), @bitCast(u64, @as(i64, -10)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], @as([*]const u8, @ptrCast(&result)), @as(u64, @bitCast(@as(i64, -10))));
         return result;
     }
 
     pub inline fn oobOutputSet(self: *@This(), terminal: ?*Terminal, value: u64) void {
-        self.write_fn(terminal orelse self.terminals_ptr[0], @ptrCast([*]const u8, &value), @bitCast(u64, @as(i64, -11)));
+        self.write_fn(terminal orelse self.terminals_ptr[0], @as([*]const u8, @ptrCast(&value)), @as(u64, @bitCast(@as(i64, -11))));
     }
 };
 
