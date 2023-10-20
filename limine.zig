@@ -294,7 +294,7 @@ const X86SmpInfo = extern struct {
     processor_id: u32,
     lapic_id: u32,
     reserved: u64,
-    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
+    goto_address: ?*const fn (*@This()) callconv(.C) void,
     extra_argument: u64,
 };
 
@@ -319,7 +319,7 @@ const AArch64SmpInfo = extern struct {
     gic_iface_no: u32,
     mpidr: u64,
     reserved: u64,
-    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
+    goto_address: ?*const fn (*@This()) callconv(.C) void,
     extra_argument: u64,
 };
 
@@ -341,7 +341,7 @@ const RiscVSmpInfo = extern struct {
     processor_id: u32,
     hart_id: u32,
     reserved: u64,
-    goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
+    goto_address: ?*const fn (*@This()) callconv(.C) void,
     extra_argument: u64,
 };
 
