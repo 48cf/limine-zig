@@ -330,9 +330,9 @@ const AArch64SmpResponse = extern struct {
     flags: u32,
     bsp_mpidr: u64,
     cpu_count: u64,
-    cpus_ptr: [*]*X86SmpInfo,
+    cpus_ptr: [*]*AArch64SmpInfo,
 
-    pub inline fn cpus(self: *@This()) []*X86SmpInfo {
+    pub inline fn cpus(self: *@This()) []*AArch64SmpInfo {
         return self.cpus_ptr[0..self.cpu_count];
     }
 };
@@ -352,9 +352,9 @@ const RiscVSmpResponse = extern struct {
     flags: u32,
     bsp_hart_id: u64,
     cpu_count: u64,
-    cpus_ptr: [*]*X86SmpInfo,
+    cpus_ptr: [*]*RiscVSmpInfo,
 
-    pub inline fn cpus(self: *@This()) []*X86SmpInfo {
+    pub inline fn cpus(self: *@This()) []*RiscVSmpInfo {
         return self.cpus_ptr[0..self.cpu_count];
     }
 };
