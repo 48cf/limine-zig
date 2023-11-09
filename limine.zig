@@ -5,6 +5,15 @@ inline fn magic(a: u64, b: u64) [4]u64 {
     return .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, a, b };
 }
 
+pub const BaseRevision = extern struct {
+    id: [2]u64 = .{ 0xf9562b2d5c95a6c8, 0x6a7b384944536bdc },
+    revision: u64,
+
+    pub fn is_supported(self: *const volatile @This()) bool {
+        return self.revision == 0;
+    }
+};
+
 pub const Uuid = extern struct {
     a: u32,
     b: u16,
