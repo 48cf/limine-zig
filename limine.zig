@@ -530,15 +530,15 @@ pub const SmbiosRequest = extern struct {
 
 // EFI system table
 
-pub const EfiSystemStableResponse = extern struct {
+pub const EfiSystemTableResponse = extern struct {
     revision: u64,
-    address: *anyopaque,
+    address: *const std.os.uefi.tables.SystemTable,
 };
 
 pub const EfiSystemTableRequest = extern struct {
     id: [4]u64 = magic(0x5ceba5163eaaf6d6, 0x0a6981610cf65fcc),
     revision: u64 = 0,
-    response: ?*EfiSystemStableResponse = null,
+    response: ?*EfiSystemTableResponse = null,
 };
 
 // EFI memory map
