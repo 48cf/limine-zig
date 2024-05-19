@@ -5,6 +5,19 @@ inline fn magic(a: u64, b: u64) [4]u64 {
     return .{ 0xc7b1dd30df4c8b88, 0x0a82e883a194f07b, a, b };
 }
 
+pub const LimineArch = enum {
+    x86_64,
+    aarch64,
+    riscv64,
+};
+
+pub const arch = switch (builtin.cpu.arch) {
+    .x86, .x86_64 => LimineArch.x86_64,
+    .aarch64 => LimineArch.aarch64,
+    .riscv64 => LimineArch.riscv64,
+    else => @compileError("Unsupported architecture: " ++ @tagName(builtin.cpu.arch)),
+};
+
 pub const BaseRevision = extern struct {
     id: [2]u64 = .{ 0xf9562b2d5c95a6c8, 0x6a7b384944536bdc },
     revision: u64,
@@ -249,27 +262,29 @@ pub const TerminalRequest = extern struct {
 const X86PagingMode = enum(u64) {
     four_level = 0,
     five_level = 1,
-    default = .four_level,
 };
 
 const AArch64PagingMode = enum(u64) {
     four_level = 0,
     five_level = 1,
-    default = .four_level,
 };
 
 const RiscVPagingMode = enum(u64) {
     sv39 = 0,
     sv48 = 1,
     sv57 = 2,
-    default = .sv48,
 };
 
-pub const PagingMode = switch (builtin.cpu.arch) {
-    .x86, .x86_64 => X86PagingMode,
+pub const PagingMode = switch (arch) {
+    .x86_64 => X86PagingMode,
     .aarch64 => AArch64PagingMode,
     .riscv64 => RiscVPagingMode,
-    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
+};
+
+pub const default_paging_mode = switch (arch) {
+    .x86_64 => X86PagingMode.four_level,
+    .aarch64 => AArch64PagingMode.four_level,
+    .riscv64 => RiscVPagingMode.sv48,
 };
 
 pub const PagingModeResponse = extern struct {
@@ -368,25 +383,22 @@ const RiscVSmpResponse = extern struct {
     }
 };
 
-pub const SmpInfo = switch (builtin.cpu.arch) {
-    .x86, .x86_64 => X86SmpInfo,
+pub const SmpInfo = switch (arch) {
+    .x86_64 => X86SmpInfo,
     .aarch64 => AArch64SmpInfo,
     .riscv64 => RiscVSmpInfo,
-    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
 };
 
-pub const SmpFlags = switch (builtin.cpu.arch) {
-    .x86, .x86_64 => X86SmpFlags,
+pub const SmpFlags = switch (arch) {
+    .x86_64 => X86SmpFlags,
     .aarch64 => AArch64SmpFlags,
     .riscv64 => RiscVSmpFlags,
-    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
 };
 
-pub const SmpResponse = switch (builtin.cpu.arch) {
-    .x86, .x86_64 => X86SmpResponse,
+pub const SmpResponse = switch (arch) {
+    .x86_64 => X86SmpResponse,
     .aarch64 => AArch64SmpResponse,
     .riscv64 => RiscVSmpResponse,
-    else => |arch| @compileError("Unsupported architecture: " ++ @tagName(arch)),
 };
 
 pub const SmpRequest = extern struct {
