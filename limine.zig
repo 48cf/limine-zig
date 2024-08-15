@@ -351,7 +351,7 @@ const AArch64SmpFlags = enum(u32) {};
 
 const AArch64SmpResponse = extern struct {
     revision: u64,
-    flags: u32,
+    flags: u64,
     bsp_mpidr: u64,
     cpu_count: u64,
     cpus_ptr: [*]*AArch64SmpInfo,
@@ -362,8 +362,8 @@ const AArch64SmpResponse = extern struct {
 };
 
 const RiscVSmpInfo = extern struct {
-    processor_id: u32,
-    hart_id: u32,
+    processor_id: u64,
+    hart_id: u64,
     reserved: u64,
     goto_address: ?*const fn (*@This()) callconv(.C) noreturn,
     extra_argument: u64,
@@ -373,7 +373,7 @@ const RiscVSmpFlags = enum(u32) {};
 
 const RiscVSmpResponse = extern struct {
     revision: u64,
-    flags: u32,
+    flags: u64,
     bsp_hart_id: u64,
     cpu_count: u64,
     cpus_ptr: [*]*RiscVSmpInfo,
