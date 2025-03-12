@@ -194,7 +194,7 @@ pub const HhdmRequest = extern struct {
 
 // Framebuffer
 
-pub const FramebufferType = enum(u32) {
+pub const FramebufferMemoryModel = enum(u8) {
     rgb = 1,
     _,
 };
@@ -204,7 +204,7 @@ pub const VideoMode = extern struct {
     width: u64,
     height: u64,
     bpp: u16,
-    memory_model: u8,
+    memory_model: FramebufferMemoryModel,
     red_mask_size: u8,
     red_mask_shift: u8,
     green_mask_size: u8,
@@ -219,7 +219,7 @@ pub const Framebuffer = extern struct {
     height: u64,
     pitch: u64,
     bpp: u16,
-    memory_model: u8,
+    memory_model: FramebufferMemoryModel,
     red_mask_size: u8,
     red_mask_shift: u8,
     green_mask_size: u8,
