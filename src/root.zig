@@ -26,10 +26,7 @@ fn LiminePtr(comptime Type: type) type {
     return if (config.no_pointers) u64 else Type;
 }
 
-const init_pointer = if (config.no_pointers)
-    0
-else
-    null;
+const init_pointer = if (config.no_pointers) 0 else null;
 
 pub const RequestsStartMarker = extern struct {
     marker: [4]u64 = .{
@@ -278,6 +275,8 @@ pub const FramebufferRequest = extern struct {
 
 // Terminal
 
+pub const Term = if (config.allow_deprecated) TerminalFeature else TerminalDeprecated;
+
 const TerminalDeprecated = struct {
     const deprecation_message =
         \\The Terminal feature was deprecated and is no longer available.
@@ -426,11 +425,6 @@ const TerminalFeature = struct {
     };
 };
 
-pub usingnamespace if (config.allow_deprecated)
-    TerminalFeature
-else
-    TerminalDeprecated;
-
 // Paging mode
 
 pub const PagingMode = switch (arch) {
@@ -488,6 +482,8 @@ pub const PagingModeRequest = extern struct {
 
 // 5-level paging
 
+pub const Paging = if (config.allow_deprecated) FiveLevelPagingFeature else FiveLevelPagingDeprecated;
+
 const FiveLevelPagingDeprecated = struct {
     const deprecation_message =
         \\The 5-level paging feature was deprecated and is no longer available.
@@ -510,11 +506,6 @@ const FiveLevelPagingFeature = struct {
         response: LiminePtr(?*FiveLevelPagingResponse) = init_pointer,
     };
 };
-
-pub usingnamespace if (config.allow_deprecated)
-    FiveLevelPagingFeature
-else
-    FiveLevelPagingDeprecated;
 
 // MP (formerly SMP)
 
@@ -636,6 +627,8 @@ const SmpMpRequest = extern struct {
     reserved: u32 = 0,
 };
 
+pub const MultiprocessorFeature = if (config.api_revision >= 1) MpFeature else SmpFeature;
+
 const MpFeature = struct {
     pub const MpFlags = SmpMpFlags;
     pub const MpInfo = SmpMpInfo;
@@ -650,12 +643,9 @@ const SmpFeature = struct {
     pub const SmpRequest = SmpMpRequest;
 };
 
-pub usingnamespace if (config.api_revision >= 1)
-    MpFeature
-else
-    SmpFeature;
-
 // Memory map
+
+pub const MemoryMapType = if (config.api_revision >= 2) MemoryMapTypeV2 else MemoryMapTypeV1;
 
 const MemoryMapTypeV1 = enum(u64) {
     usable = 0,
@@ -680,11 +670,6 @@ const MemoryMapTypeV2 = enum(u64) {
     framebuffer = 7,
     _,
 };
-
-pub const MemoryMapType = if (config.api_revision >= 2)
-    MemoryMapTypeV2
-else
-    MemoryMapTypeV1;
 
 pub const MemoryMapEntry = extern struct {
     base: u64,
@@ -730,7 +715,7 @@ pub const EntryPointRequest = extern struct {
 };
 
 // Executable file (formerly Kernel file)
-
+pub const FileFeature = if (config.api_revision >= 2) ExecutableFileFeature else KernelFileFeature;
 const ExecutableFileFeature = struct {
     pub const ExecutableFileResponse = extern struct {
         revision: u64,
@@ -743,7 +728,6 @@ const ExecutableFileFeature = struct {
         response: LiminePtr(?*ExecutableFileResponse) = init_pointer,
     };
 };
-
 const KernelFileFeature = struct {
     pub const KernelFileResponse = extern struct {
         revision: u64,
@@ -756,11 +740,6 @@ const KernelFileFeature = struct {
         response: LiminePtr(?*KernelFileResponse) = init_pointer,
     };
 };
-
-pub usingnamespace if (config.api_revision >= 2)
-    ExecutableFileFeature
-else
-    KernelFileFeature;
 
 // Module
 
@@ -911,7 +890,7 @@ pub const EfiMemoryMapRequest = extern struct {
 };
 
 // Date at boot (formerly Boot time)
-
+pub const BootTimestampFeature = if (config.api_revision >= 3) DateAtBootFeature else BootTimeFeature;
 const DateAtBootFeature = struct {
     pub const DateAtBootResponse = extern struct {
         revision: u64,
@@ -924,7 +903,6 @@ const DateAtBootFeature = struct {
         response: LiminePtr(?*DateAtBootResponse) = init_pointer,
     };
 };
-
 const BootTimeFeature = struct {
     pub const BootTimeResponse = extern struct {
         revision: u64,
@@ -938,14 +916,8 @@ const BootTimeFeature = struct {
     };
 };
 
-pub usingnamespace if (config.api_revision >= 3)
-    DateAtBootFeature
-else
-    BootTimeFeature;
-
 // Executable address (formerly Kernel address)
-
-const ExecutableAddressFeature = struct {
+pub const ExecutableAddressFeature = struct {
     pub const ExecutableAddressResponse = extern struct {
         revision: u64,
         physical_base: u64,
@@ -958,25 +930,6 @@ const ExecutableAddressFeature = struct {
         response: LiminePtr(?*ExecutableAddressResponse) = init_pointer,
     };
 };
-
-const KernelAddressFeature = struct {
-    pub const KernelAddressResponse = extern struct {
-        revision: u64,
-        physical_base: u64,
-        virtual_base: u64,
-    };
-
-    pub const KernelAddressRequest = extern struct {
-        id: [4]u64 = id(0x71ba76863cc55f63, 0xb2644a48c516a487),
-        revision: u64 = 0,
-        response: LiminePtr(?*KernelAddressResponse) = init_pointer,
-    };
-};
-
-pub usingnamespace if (config.api_revision >= 2)
-    ExecutableAddressFeature
-else
-    KernelAddressFeature;
 
 // Device Tree Blob
 
