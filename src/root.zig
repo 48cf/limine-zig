@@ -408,6 +408,7 @@ pub const MemoryMapType = enum(u64) {
     bootloader_reclaimable = 5,
     executable_and_modules = 6,
     framebuffer = 7,
+    acpi_tables = 8,
     _,
 };
 
