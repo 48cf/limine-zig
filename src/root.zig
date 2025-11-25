@@ -279,9 +279,9 @@ pub const PagingModeRequest = extern struct {
 
 // MP (formerly SMP)
 
-pub const GotoAddress = *const fn (*SmpMpInfo) callconv(.c) noreturn;
+pub const GotoAddress = *const fn (*SmpInfo) callconv(.c) noreturn;
 
-const SmpMpFlags = switch (arch) {
+const SmpFlags = switch (arch) {
     .x86_64 => packed struct(u32) {
         x2apic: bool = false,
         reserved: u31 = 0,
@@ -291,7 +291,7 @@ const SmpMpFlags = switch (arch) {
     },
 };
 
-const SmpMpInfo = switch (arch) {
+const SmpInfo = switch (arch) {
     .x86_64 => extern struct {
         processor_id: u32,
         lapic_id: u32,
@@ -318,18 +318,18 @@ const SmpMpInfo = switch (arch) {
     },
 };
 
-const SmpMpResponse = switch (arch) {
+const SmpResponse = switch (arch) {
     .x86_64 => extern struct {
         revision: u64,
-        flags: SmpMpFlags,
+        flags: SmpFlags,
         bsp_lapic_id: u32,
         cpu_count: u64,
-        cpus: ?[*]*SmpMpInfo,
+        cpus: ?[*]*SmpInfo,
 
         /// Helper function to retrieve a slice of the CPUs array.
         /// This function will return null if the CPU count is 0 or if
         /// the CPUs pointer is null.
-        pub fn getCpus(self: @This()) []*SmpMpInfo {
+        pub fn getCpus(self: @This()) []*SmpInfo {
             if (self.cpu_count == 0 or self.cpus == null) {
                 return &.{};
             }
@@ -338,15 +338,15 @@ const SmpMpResponse = switch (arch) {
     },
     .aarch64 => extern struct {
         revision: u64,
-        flags: SmpMpFlags,
+        flags: SmpFlags,
         bsp_mpidr: u64,
         cpu_count: u64,
-        cpus: ?[*]*SmpMpInfo,
+        cpus: ?[*]*SmpInfo,
 
         /// Helper function to retrieve a slice of the CPUs array.
         /// This function will return null if the CPU count is 0 or if
         /// the CPUs pointer is null.
-        pub fn getCpus(self: @This()) []*SmpMpInfo {
+        pub fn getCpus(self: @This()) []*SmpInfo {
             if (self.cpu_count == 0 or self.cpus == null) {
                 return &.{};
             }
@@ -355,15 +355,15 @@ const SmpMpResponse = switch (arch) {
     },
     .riscv64 => extern struct {
         revision: u64,
-        flags: SmpMpFlags,
+        flags: SmpFlags,
         bsp_hartid: u64,
         cpu_count: u64,
-        cpus: ?[*]*SmpMpInfo,
+        cpus: ?[*]*SmpInfo,
 
         /// Helper function to retrieve a slice of the CPUs array.
         /// This function will return null if the CPU count is 0 or if
         /// the CPUs pointer is null.
-        pub fn getCpus(self: @This()) []*SmpMpInfo {
+        pub fn getCpus(self: @This()) []*SmpInfo {
             if (self.cpu_count == 0 or self.cpus == null) {
                 return &.{};
             }
@@ -372,12 +372,12 @@ const SmpMpResponse = switch (arch) {
     },
     .loongarch64 => extern struct {
         cpu_count: u64,
-        cpus: ?[*]*SmpMpInfo,
+        cpus: ?[*]*SmpInfo,
 
         /// Helper function to retrieve a slice of the CPUs array.
         /// This function will return null if the CPU count is 0 or if
         /// the CPUs pointer is null.
-        pub fn getCpus(self: @This()) []*SmpMpInfo {
+        pub fn getCpus(self: @This()) []*SmpInfo {
             if (self.cpu_count == 0 or self.cpus == null) {
                 return &.{};
             }
@@ -386,21 +386,16 @@ const SmpMpResponse = switch (arch) {
     },
 };
 
-const SmpMpRequest = extern struct {
+const SmpRequest = extern struct {
     id: [4]u64 = id(0x95a67b819a1b857e, 0xa0b61b723b6a73e0),
     revision: u64 = 0,
-    response: ?*SmpMpResponse = null,
+    response: ?*SmpResponse = null,
     // The `flags` field in the request is 64-bit on *all* platforms, even
     // though the flags enum is 32-bit on x86_64. This is to ensure that the
     // struct is not too small on x86_64 there is a `reserved: u32` field after it.
-    flags: SmpMpFlags = .{},
+    flags: SmpFlags = .{},
     reserved: u32 = 0,
 };
-
-pub const SmpFlags = SmpMpFlags;
-pub const SmpInfo = SmpMpInfo;
-pub const SmpResponse = SmpMpResponse;
-pub const SmpRequest = SmpMpRequest;
 
 // Memory map
 
