@@ -277,159 +277,137 @@ pub const FramebufferRequest = extern struct {
 };
 
 // Terminal
+const terminal_deprecation_message =
+    \\The Terminal feature was deprecated and is no longer available.
+    \\Kernels are encouraged to manually implement terminal support
+    \\using the Framebuffer feature instead. If you need an easy to
+    \\integrate solution, consider using https://github.com/mintsuki/flanterm.
+;
+pub const TerminalCallbackType = if (config.allow_deprecated) enum(u64) {
+    dec = 10,
+    bell = 20,
+    private_id = 30,
+    status_report = 40,
+    pos_report = 50,
+    kbd_leds = 60,
+    mode = 70,
+    linux = 80,
+    _,
+} else @compileError(terminal_deprecation_message);
 
-const TerminalDeprecated = struct {
-    const deprecation_message =
-        \\The Terminal feature was deprecated and is no longer available.
-        \\Kernels are encouraged to manually implement terminal support
-        \\using the Framebuffer feature instead. If you need an easy to
-        \\integrate solution, consider using https://github.com/mintsuki/flanterm.
-    ;
+pub const TerminalCallbackEscapeParams = if (config.allow_deprecated) struct {
+    a1: u64,
+    a2: u64,
+    a3: u64,
 
-    pub const TerminalCallbackType = @compileError(deprecation_message);
-    pub const TerminalCallbackEscapeParams = @compileError(deprecation_message);
-    pub const TerminalCallbackPosReportParams = @compileError(deprecation_message);
-    pub const TerminalCallbackKbdLedsState = @compileError(deprecation_message);
-    pub const TerminalCallbackKbdLedsParams = @compileError(deprecation_message);
-    pub const TerminalWrite = @compileError(deprecation_message);
-    pub const TerminalCallback = @compileError(deprecation_message);
-    pub const Terminal = @compileError(deprecation_message);
-    pub const TerminalResponse = @compileError(deprecation_message);
-    pub const TerminalRequest = @compileError(deprecation_message);
-};
+    /// Initialize a TerminalCallbackEscapeParams struct, which is used for
+    /// decoding the parameters of the terminal callbacks that handle escape sequences.
+    pub fn init(a1: u64, a2: u64, a3: u64) @This() {
+        return .{ .a1 = a1, .a2 = a2, .a3 = a3 };
+    }
 
-const TerminalFeature = struct {
-    pub const TerminalCallbackType = enum(u64) {
-        dec = 10,
-        bell = 20,
-        private_id = 30,
-        status_report = 40,
-        pos_report = 50,
-        kbd_leds = 60,
-        mode = 70,
-        linux = 80,
-        _,
-    };
+    /// Retrieve the array of values passed to the escape sequence.
+    pub fn values(self: @This()) []u32 {
+        const values_ptr: [*]u32 = @intFromPtr(self.a2);
+        return values_ptr[0..self.a1];
+    }
 
-    pub const TerminalCallbackEscapeParams = struct {
-        a1: u64,
-        a2: u64,
-        a3: u64,
+    /// Retrieve the final character in a DEC or ECMA-48 Mode Switch
+    /// escape sequence.
+    /// This is the character that is used to determine the type of
+    /// sequence that was sent, usually 'h' or 'l'.
+    pub fn finalChar(self: @This()) u8 {
+        return @intCast(self.a3);
+    }
+} else @compileError(terminal_deprecation_message);
 
-        /// Initialize a TerminalCallbackEscapeParams struct, which is used for
-        /// decoding the parameters of the terminal callbacks that handle escape sequences.
-        pub fn init(a1: u64, a2: u64, a3: u64) @This() {
-            return .{ .a1 = a1, .a2 = a2, .a3 = a3 };
+pub const TerminalCallbackPosReportParams = if (config.allow_deprecated) struct {
+    a1: u64,
+    a2: u64,
+
+    /// Initialize a TerminalCallbackPosReportParams struct, which is used for
+    /// decoding the parameters of a position report terminal callback.
+    pub fn init(a1: u64, a2: u64) @This() {
+        return .{ .a1 = a1, .a2 = a2 };
+    }
+
+    /// Retrieve the X position of the cursor.
+    pub fn x(self: @This()) u64 {
+        return self.a1;
+    }
+
+    /// Retrieve the Y position of the cursor.
+    pub fn y(self: @This()) u64 {
+        return self.a2;
+    }
+} else @compileError(terminal_deprecation_message);
+
+pub const TerminalCallbackKbdLedsState = if (config.allow_deprecated) enum(u64) {
+    clear_all = 0,
+    set_scroll_lock = 1,
+    set_num_lock = 2,
+    set_caps_lock = 3,
+    _,
+} else @compileError(terminal_deprecation_message);
+
+pub const TerminalCallbackKbdLedsParams = if (config.allow_deprecated) struct {
+    a1: u64,
+
+    /// Initialize a TerminalCallbackKbdLedsParams struct, which is used for
+    /// decoding the parameters of a keyboard LEDs terminal callback.
+    pub fn init(a1: u64) @This() {
+        return .{ .a1 = a1 };
+    }
+
+    /// Retrieve the state of the Caps Lock LED.
+    pub fn state(self: @This()) TerminalCallbackKbdLedsState {
+        return @enumFromInt(self.a1);
+    }
+} else @compileError(terminal_deprecation_message);
+
+pub const TerminalWrite = if (config.allow_deprecated) *const fn (*Terminal, [*]const u8, u64) callconv(.c) void else @compileError(terminal_deprecation_message);
+
+pub const TerminalCallback = if (config.allow_deprecated) *const fn (*Terminal, TerminalCallbackType, u64, u64, u64) callconv(.c) void else @compileError(terminal_deprecation_message);
+
+pub const Terminal = if (config.allow_deprecated) extern struct {
+    columns: u64,
+    rows: u64,
+    framebuffer: LiminePtr(?*Framebuffer),
+} else @compileError(terminal_deprecation_message);
+
+pub const TerminalResponse = if (config.allow_deprecated) extern struct {
+    revision: u64,
+    terminal_count: u64,
+    terminals: LiminePtr(?[*]*Terminal),
+    write_fn: LiminePtr(TerminalWrite),
+
+    /// Helper function to retrieve a slice of the terminals array.
+    /// This function will return null if the terminal count is 0 or if
+    /// the terminals pointer is null.
+    pub fn getTerminals(self: @This()) []*Terminal {
+        if (self.terminal_count == 0 or self.terminals == null) {
+            return &.{};
         }
+        return self.terminals.?[0..self.terminal_count];
+    }
 
-        /// Retrieve the array of values passed to the escape sequence.
-        pub fn values(self: @This()) []u32 {
-            const values_ptr: [*]u32 = @intFromPtr(self.a2);
-            return values_ptr[0..self.a1];
-        }
+    /// Helper function to write to a terminal.
+    pub fn write(self: @This(), terminal: *Terminal, data: []const u8) void {
+        const write_fn: TerminalWrite = if (config.no_pointers)
+            @ptrFromInt(self.write_fn)
+        else
+            self.write_fn;
 
-        /// Retrieve the final character in a DEC or ECMA-48 Mode Switch
-        /// escape sequence.
-        /// This is the character that is used to determine the type of
-        /// sequence that was sent, usually 'h' or 'l'.
-        pub fn finalChar(self: @This()) u8 {
-            return @intCast(self.a3);
-        }
-    };
+        write_fn(terminal, data.ptr, data.len);
+    }
+} else @compileError(terminal_deprecation_message);
 
-    pub const TerminalCallbackPosReportParams = struct {
-        a1: u64,
-        a2: u64,
-
-        /// Initialize a TerminalCallbackPosReportParams struct, which is used for
-        /// decoding the parameters of a position report terminal callback.
-        pub fn init(a1: u64, a2: u64) @This() {
-            return .{ .a1 = a1, .a2 = a2 };
-        }
-
-        /// Retrieve the X position of the cursor.
-        pub fn x(self: @This()) u64 {
-            return self.a1;
-        }
-
-        /// Retrieve the Y position of the cursor.
-        pub fn y(self: @This()) u64 {
-            return self.a2;
-        }
-    };
-
-    pub const TerminalCallbackKbdLedsState = enum(u64) {
-        clear_all = 0,
-        set_scroll_lock = 1,
-        set_num_lock = 2,
-        set_caps_lock = 3,
-        _,
-    };
-
-    pub const TerminalCallbackKbdLedsParams = struct {
-        a1: u64,
-
-        /// Initialize a TerminalCallbackKbdLedsParams struct, which is used for
-        /// decoding the parameters of a keyboard LEDs terminal callback.
-        pub fn init(a1: u64) @This() {
-            return .{ .a1 = a1 };
-        }
-
-        /// Retrieve the state of the Caps Lock LED.
-        pub fn state(self: @This()) TerminalCallbackKbdLedsState {
-            return @enumFromInt(self.a1);
-        }
-    };
-
-    pub const TerminalWrite = *const fn (*Terminal, [*]const u8, u64) callconv(.c) void;
-
-    pub const TerminalCallback = *const fn (*Terminal, TerminalCallbackType, u64, u64, u64) callconv(.c) void;
-
-    pub const Terminal = extern struct {
-        columns: u64,
-        rows: u64,
-        framebuffer: LiminePtr(?*Framebuffer),
-    };
-
-    pub const TerminalResponse = extern struct {
-        revision: u64,
-        terminal_count: u64,
-        terminals: LiminePtr(?[*]*Terminal),
-        write_fn: LiminePtr(TerminalWrite),
-
-        /// Helper function to retrieve a slice of the terminals array.
-        /// This function will return null if the terminal count is 0 or if
-        /// the terminals pointer is null.
-        pub fn getTerminals(self: @This()) []*Terminal {
-            if (self.terminal_count == 0 or self.terminals == null) {
-                return &.{};
-            }
-            return self.terminals.?[0..self.terminal_count];
-        }
-
-        /// Helper function to write to a terminal.
-        pub fn write(self: @This(), terminal: *Terminal, data: []const u8) void {
-            const write_fn: TerminalWrite = if (config.no_pointers)
-                @ptrFromInt(self.write_fn)
-            else
-                self.write_fn;
-
-            write_fn(terminal, data.ptr, data.len);
-        }
-    };
-
-    pub const TerminalRequest = extern struct {
-        id: [4]u64 = id(0xc8ac59310c2b0844, 0xa68d0c7265d38878),
-        revision: u64 = 0,
-        response: LiminePtr(?*TerminalResponse) = init_pointer,
-        callback: LiminePtr(?TerminalCallback),
-    };
-};
-
-pub usingnamespace if (config.allow_deprecated)
-    TerminalFeature
-else
-    TerminalDeprecated;
+pub const TerminalRequest = if (config.allow_deprecated) extern struct {
+    id: [4]u64 = id(0xc8ac59310c2b0844, 0xa68d0c7265d38878),
+    revision: u64 = 0,
+    response: LiminePtr(?*TerminalResponse) = init_pointer,
+    callback: LiminePtr(?TerminalCallback),
+} else @compileError(terminal_deprecation_message);
 
 // Paging mode
 
@@ -487,34 +465,20 @@ pub const PagingModeRequest = extern struct {
 };
 
 // 5-level paging
+const five_level_paging_deprecation_message =
+    \\The 5-level paging feature was deprecated and is no longer available.
+    \\Kernels are encouraged to manually request 5-level paging support
+    \\using the Paging mode feature instead.
+;
+pub const FiveLevelPagingResponse = if (config.allow_deprecated) extern struct {
+    revision: u64,
+} else @compileError(five_level_paging_deprecation_message);
 
-const FiveLevelPagingDeprecated = struct {
-    const deprecation_message =
-        \\The 5-level paging feature was deprecated and is no longer available.
-        \\Kernels are encouraged to manually request 5-level paging support
-        \\using the Paging mode feature instead.
-    ;
-
-    pub const FiveLevelPagingResponse = @compileError(deprecation_message);
-    pub const FiveLevelPagingRequest = @compileError(deprecation_message);
-};
-
-const FiveLevelPagingFeature = struct {
-    pub const FiveLevelPagingResponse = extern struct {
-        revision: u64,
-    };
-
-    pub const FiveLevelPagingRequest = extern struct {
-        id: [4]u64 = id(0x94469551da9b3192, 0xebe5e86db7382888),
-        revision: u64 = 0,
-        response: LiminePtr(?*FiveLevelPagingResponse) = init_pointer,
-    };
-};
-
-pub usingnamespace if (config.allow_deprecated)
-    FiveLevelPagingFeature
-else
-    FiveLevelPagingDeprecated;
+pub const FiveLevelPagingRequest = if (config.allow_deprecated) extern struct {
+    id: [4]u64 = id(0x94469551da9b3192, 0xebe5e86db7382888),
+    revision: u64 = 0,
+    response: LiminePtr(?*FiveLevelPagingResponse) = init_pointer,
+} else @compileError(five_level_paging_deprecation_message);
 
 // MP (formerly SMP)
 
@@ -635,25 +599,18 @@ const SmpMpRequest = extern struct {
     flags: SmpMpFlags = .{},
     reserved: u32 = 0,
 };
+const mp_incorrect_usage = "Mp can't be used before api revision 1, use Smp instead";
+const smp_incorrect_usage = "Smp can't be used from revision one onwards";
 
-const MpFeature = struct {
-    pub const MpFlags = SmpMpFlags;
-    pub const MpInfo = SmpMpInfo;
-    pub const MpResponse = SmpMpResponse;
-    pub const MpRequest = SmpMpRequest;
-};
+pub const MpFlags = if (config.api_revision >= 1) SmpMpFlags else @compileError(mp_incorrect_usage);
+pub const MpInfo = if (config.api_revision >= 1) SmpMpInfo else @compileError(mp_incorrect_usage);
+pub const MpResponse = if (config.api_revision >= 1) SmpMpResponse else @compileError(mp_incorrect_usage);
+pub const MpRequest = if (config.api_revision >= 1) SmpMpRequest else @compileError(mp_incorrect_usage);
 
-const SmpFeature = struct {
-    pub const SmpFlags = SmpMpFlags;
-    pub const SmpInfo = SmpMpInfo;
-    pub const SmpResponse = SmpMpResponse;
-    pub const SmpRequest = SmpMpRequest;
-};
-
-pub usingnamespace if (config.api_revision >= 1)
-    MpFeature
-else
-    SmpFeature;
+pub const SmpFlags = if (config.api_revision >= 1) @compileError(smp_incorrect_usage) else SmpMpFlags;
+pub const SmpInfo = if (config.api_revision >= 1) @compileError(smp_incorrect_usage) else SmpMpInfo;
+pub const SmpResponse = if (config.api_revision >= 1) @compileError(smp_incorrect_usage) else SmpMpResponse;
+pub const SmpRequest = if (config.api_revision >= 1) @compileError(smp_incorrect_usage) else SmpMpRequest;
 
 // Memory map
 
@@ -730,37 +687,30 @@ pub const EntryPointRequest = extern struct {
 };
 
 // Executable file (formerly Kernel file)
+const executable_file_usage_error = "Executable file can only be used on revisions 2 and higher, use kernel file feature instead";
+pub const ExecutableFileResponse = if (config.api_revision >= 2) extern struct {
+    revision: u64,
+    executable_file: LiminePtr(*File),
+} else @compileError(executable_file_usage_error);
 
-const ExecutableFileFeature = struct {
-    pub const ExecutableFileResponse = extern struct {
-        revision: u64,
-        executable_file: LiminePtr(*File),
-    };
-
-    pub const ExecutableFileRequest = extern struct {
-        id: [4]u64 = id(0xad97e90e83f1ed67, 0x31eb5d1c5ff23b69),
-        revision: u64 = 0,
-        response: LiminePtr(?*ExecutableFileResponse) = init_pointer,
-    };
-};
+pub const ExecutableFileRequest = if (config.api_revision >= 2) extern struct {
+    id: [4]u64 = id(0xad97e90e83f1ed67, 0x31eb5d1c5ff23b69),
+    revision: u64 = 0,
+    response: LiminePtr(?*ExecutableFileResponse) = init_pointer,
+} else @compileError(executable_file_usage_error);
 
 const KernelFileFeature = struct {
-    pub const KernelFileResponse = extern struct {
+    pub const KernelFileResponse = if (config.api_revision >= 2) @compileError(executable_file_usage_error) else extern struct {
         revision: u64,
         kernel_file: LiminePtr(*File),
     };
 
-    pub const KernelFileRequest = extern struct {
+    pub const KernelFileRequest = if (config.api_revision >= 2) @compileError(executable_file_usage_error) else extern struct {
         id: [4]u64 = id(0xad97e90e83f1ed67, 0x31eb5d1c5ff23b69),
         revision: u64 = 0,
         response: LiminePtr(?*KernelFileResponse) = init_pointer,
     };
 };
-
-pub usingnamespace if (config.api_revision >= 2)
-    ExecutableFileFeature
-else
-    KernelFileFeature;
 
 // Module
 
@@ -911,72 +861,58 @@ pub const EfiMemoryMapRequest = extern struct {
 };
 
 // Date at boot (formerly Boot time)
+const date_at_boot_usage_error = "date at boot feature may only be used in revisions 3 and higher";
+const boot_time_usage_error = "boot time feature may only be used in lower than 3";
+pub const DateAtBootResponse = if (config.api_revision >= 3) extern struct {
+    revision: u64,
+    timestamp: i64,
+} else @compileError(date_at_boot_usage_error);
 
-const DateAtBootFeature = struct {
-    pub const DateAtBootResponse = extern struct {
-        revision: u64,
-        timestamp: i64,
-    };
+pub const DateAtBootRequest = if (config.api_revision >= 3) extern struct {
+    id: [4]u64 = id(0x502746e184c088aa, 0xfbc5ec83e6327893),
+    revision: u64 = 0,
+    response: LiminePtr(?*DateAtBootResponse) = init_pointer,
+} else @compileError(date_at_boot_usage_error);
 
-    pub const DateAtBootRequest = extern struct {
-        id: [4]u64 = id(0x502746e184c088aa, 0xfbc5ec83e6327893),
-        revision: u64 = 0,
-        response: LiminePtr(?*DateAtBootResponse) = init_pointer,
-    };
+pub const BootTimeResponse = if (config.api_revision >= 3) @compileError(boot_time_usage_error) else extern struct {
+    revision: u64,
+    boot_time: i64,
 };
 
-const BootTimeFeature = struct {
-    pub const BootTimeResponse = extern struct {
-        revision: u64,
-        boot_time: i64,
-    };
-
-    pub const BootTimeRequest = extern struct {
-        id: [4]u64 = id(0x502746e184c088aa, 0xfbc5ec83e6327893),
-        revision: u64 = 0,
-        response: LiminePtr(?*BootTimeResponse) = init_pointer,
-    };
+pub const BootTimeRequest = if (config.api_revision >= 3) @compileError(boot_time_usage_error) else extern struct {
+    id: [4]u64 = id(0x502746e184c088aa, 0xfbc5ec83e6327893),
+    revision: u64 = 0,
+    response: LiminePtr(?*BootTimeResponse) = init_pointer,
 };
-
-pub usingnamespace if (config.api_revision >= 3)
-    DateAtBootFeature
-else
-    BootTimeFeature;
 
 // Executable address (formerly Kernel address)
+const executable_address_feature_usage_error = "executable address feature may only be used in revisions 2 and higher, use kernel address feature instead";
+const kernel_address_feature_usage_error = "kernel address feature may only be used in revisions lower than 2, use excutable address feature instead";
+pub const ExecutableAddressResponse = if (config.api_revision >= 2) extern struct {
+    revision: u64,
+    physical_base: u64,
+    virtual_base: u64,
+} else @compileError(executable_file_usage_error);
 
-const ExecutableAddressFeature = struct {
-    pub const ExecutableAddressResponse = extern struct {
-        revision: u64,
-        physical_base: u64,
-        virtual_base: u64,
-    };
-
-    pub const ExecutableAddressRequest = extern struct {
-        id: [4]u64 = id(0x71ba76863cc55f63, 0xb2644a48c516a487),
-        revision: u64 = 0,
-        response: LiminePtr(?*ExecutableAddressResponse) = init_pointer,
-    };
-};
+pub const ExecutableAddressRequest = if (config.api_revision >= 2) extern struct {
+    id: [4]u64 = id(0x71ba76863cc55f63, 0xb2644a48c516a487),
+    revision: u64 = 0,
+    response: LiminePtr(?*ExecutableAddressResponse) = init_pointer,
+} else @compileError(executable_file_usage_error);
 
 const KernelAddressFeature = struct {
-    pub const KernelAddressResponse = extern struct {
+    pub const KernelAddressResponse = if (config.api_revision >= 2) @compileError(kernel_address_feature_usage_error) else extern struct {
         revision: u64,
         physical_base: u64,
         virtual_base: u64,
     };
 
-    pub const KernelAddressRequest = extern struct {
+    pub const KernelAddressRequest = if (config.api_revision >= 2) @compileError(kernel_address_feature_usage_error) else extern struct {
         id: [4]u64 = id(0x71ba76863cc55f63, 0xb2644a48c516a487),
         revision: u64 = 0,
         response: LiminePtr(?*KernelAddressResponse) = init_pointer,
     };
 };
-
-pub usingnamespace if (config.api_revision >= 2)
-    ExecutableAddressFeature
-else
-    KernelAddressFeature;
 
 // Device Tree Blob
 
