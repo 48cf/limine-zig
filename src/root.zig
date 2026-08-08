@@ -944,6 +944,5 @@ comptime {
     if (config.api_revision > 3) {
         @compileError("Limine API revision must be 3 or lower");
     }
-
-    std.testing.refAllDeclsRecursive(@This());
+    std.testing.refAllDecls(@This());
 }
